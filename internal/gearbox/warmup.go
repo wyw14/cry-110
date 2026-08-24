@@ -58,9 +58,22 @@ func (w *Warmup) Observe(proof WarmupProof) WarmupState {
 	w.proof = proof
 	if proof.SumpTemperatureC < w.minimumTemp {
 		w.state = WarmupHeating
-	} else {
-		w.state = WarmupReady
+		return w.state
 	}
+	// Oil temperature alone is not sufficient. The sump heater can lift
+	// temperature past the threshold before the lube pump has primed the
+	// supply header and opened the return circuit, which leaves the planet
+	// carrier bearings starved the moment the gearbox takes load. Demand
+	// both supply pressure and a measurable return flow before ready.
+	if proof.SupplyPressureBar < w.minimumPSI {
+		w.state = WarmupHeating
+		return w.state
+	}
+	if proof.ReturnFlowLPM < w.minimumFlow {
+		w.state = WarmupCirculating
+		return w.state
+	}
+	w.state = WarmupReady
 	return w.state
 }
 
